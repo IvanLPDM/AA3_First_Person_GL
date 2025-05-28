@@ -2,7 +2,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <iostream>
-
+#include <vector>
 
 //Constantes
 #define M_PI 3.141592f
@@ -33,6 +33,22 @@ float lastSunIntensity = 1.0f;
 
 DayState currentState = AMANECER;
 
+bool shownText = false;
+
+struct Objeto {
+    float x, z;
+    bool interactuado = false;
+};
+
+std::vector<Objeto> objetosInteractuables;
+
+
+struct AABB {
+    float xMin, xMax;
+    float zMin, zMax;
+};
+
+std::vector<AABB> collisionBoxes;
 
 
 // Función para inicializar la configuración de OpenGL
@@ -68,42 +84,80 @@ void init() {
     glutSetCursor(GLUT_CURSOR_NONE); //Raton invisible
 }
 
+bool checkCollision(float nextX, float nextZ) {
+    float halfSize = 0.1f; // "tamaño" del jugador
+    for (const auto& box : collisionBoxes) {
+        if (nextX + halfSize > box.xMin &&
+            nextX - halfSize < box.xMax &&
+            nextZ + halfSize > box.zMin &&
+            nextZ - halfSize < box.zMax) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void interactuarConObjetoCercano() {
+    float rangoInteraccion = 2.0f;
+    for (auto& obj : objetosInteractuables) {
+        float dx = camX - obj.x;
+        float dz = camZ - obj.z;
+        float distancia = sqrt(dx * dx + dz * dz);
+
+        if (distancia < rangoInteraccion && !obj.interactuado) {
+            obj.interactuado = true;
+
+            std::cout << "¡Interacción realizada con objeto en (" << obj.x << ", " << obj.z << ")!" << std::endl;
+            shownText = true;
+            break;
+        }
+    }
+}
+
 
 //Movimiento del raton------------
 void keyboard(unsigned char key, int x, int y) {
-    float frontX = cos(camYaw);
-    float frontZ = sin(camYaw);
-
-    // Eliminamos el componente Y
-    float len = sqrt(frontX * frontX + frontZ * frontZ);
-    frontX /= len;
-    frontZ /= len;
-
+    float frontX = cos(camYaw) * cos(camPitch);
+    float frontZ = sin(camYaw) * cos(camPitch);
     float rightX = -sin(camYaw);
     float rightZ = cos(camYaw);
 
+    float nextX = camX;
+    float nextZ = camZ;
+
     switch (key) {
     case 'w':
-        camX += frontX * camSpeed;
-        camZ += frontZ * camSpeed;
+        nextX += frontX * camSpeed;
+        nextZ += frontZ * camSpeed;
         break;
     case 's':
-        camX -= frontX * camSpeed;
-        camZ -= frontZ * camSpeed;
+        nextX -= frontX * camSpeed;
+        nextZ -= frontZ * camSpeed;
         break;
     case 'd':
-        camX += rightX * camSpeed;
-        camZ += rightZ * camSpeed;
+        nextX += rightX * camSpeed;
+        nextZ += rightZ * camSpeed;
+        break;
+    case 'e':
+    case 'E':
+        interactuarConObjetoCercano();
         break;
     case 'a':
-        camX -= rightX * camSpeed;
-        camZ -= rightZ * camSpeed;
+        nextX -= rightX * camSpeed;
+        nextZ -= rightZ * camSpeed;
         break;
     case 27:  // ESC
         exit(0);
         break;
     }
-    glutPostRedisplay();  // Actualiza la ventana
+
+    // Solo mover si no hay colisión
+    if (!checkCollision(nextX, nextZ)) {
+        camX = nextX;
+        camZ = nextZ;
+    }
+
+    glutPostRedisplay();
 }
 
 void mouseClick(int button, int state, int x, int y) {
@@ -162,6 +216,11 @@ void drawHouse(float x, float y) {
     glRotatef(45, 0.0f, 0.0f, 1.0f);
     glutSolidCone(0.5, 0.5, 4, 4);
     glPopMatrix();
+
+    // Collision
+    collisionBoxes.push_back({ 1.75f, 2.25f, 1.75f, 2.25f });
+    collisionBoxes.push_back({ 0.75f, 1.25f, 0.75f, 1.25f });
+    collisionBoxes.push_back({ -1.25f, -0.75f, -1.25f, -0.75f });
 }
 
 void drawTree(float x, float y) {
@@ -177,6 +236,11 @@ void drawTree(float x, float y) {
     glTranslatef(x, 1.0f, y);  
     glutSolidSphere(0.3, 20, 20);  
     glPopMatrix();
+
+    //Collision
+    collisionBoxes.push_back({ -0.15f, 0.15f, -0.15f, 0.15f });
+    collisionBoxes.push_back({ -1.65f, -1.35f, -1.65f, -1.35f });
+    collisionBoxes.push_back({ 2.05f, 2.35f, 2.25f, 2.55f });
 }
 
 void drawStone(float x, float y) {
@@ -185,6 +249,13 @@ void drawStone(float x, float y) {
     glTranslatef(x, 0.0f, y); 
     glutSolidSphere(0.3, 20, 20);  
     glPopMatrix();
+
+    //Collision
+    collisionBoxes.push_back({ 0.2f, 0.8f, 0.2f, 0.8f });
+    collisionBoxes.push_back({ -0.5f, 0.1f, 0.0f, 0.4f });
+
+
+    objetosInteractuables.push_back({ x, y });
 }
 
 
@@ -222,6 +293,8 @@ void drawObjects()
     drawStone(.5, .5);
     drawStone(-0.2, 0.2);
 }
+
+
 
 //Estado del día
 void updateDayState() {
@@ -327,6 +400,28 @@ void drawMinimap() {
     glEnable(GL_LIGHTING);  // Restauramos estado
 }
 
+void drawText(const char* text, int x, int y) {
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    gluOrtho2D(0, 1200, 0, 1200);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
+    glRasterPos2i(x, y);
+
+    for (const char* c = text; *c != '\0'; c++) {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+    }
+
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+}
+
+
 // Función para dibujar la escena
 void display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  //Limpiar Buffer
@@ -350,12 +445,21 @@ void display() {
 
     drawObjects();
 
-    drawMinimap();
+    if (shownText)
+    {
+        glDisable(GL_LIGHTING); // Para que el texto salga sin iluminación
+        glColor3f(1.0f, 1.0f, 1.0f);
+        drawText("Es una piedra normal", 400, 400);
+        glEnable(GL_LIGHTING);
+        shownText = false;
+    }
 
-    
+    drawMinimap();
 
     glFlush();  //Final
 }
+
+
 
 void update(int value) {
 
