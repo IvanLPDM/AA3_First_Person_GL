@@ -14,7 +14,7 @@ enum DayState { AMANECER, MEDIODIA, ATARDECER, NOCHE };
 //Sun
 float angle_sun = 0;
 float radius_sun = 8;
-float vel_sun = 0.5;
+float vel_sun = 0.3;
 float rotation_sun = 0;
 
 //Camara
@@ -26,6 +26,10 @@ int lastMouseX = 600, lastMouseY = 600;  // Centro inicial
 bool firstMouse = true;
 
 bool warpPointer = false;
+
+//Lantern
+bool linternaEncendida = false;
+float lastSunIntensity = 1.0f;
 
 DayState currentState = AMANECER;
 
@@ -67,13 +71,12 @@ void init() {
 
 //Movimiento del raton------------
 void keyboard(unsigned char key, int x, int y) {
-    float frontX = cos(camYaw) * cos(camPitch);
-    float frontY = sin(camPitch);
-    float frontZ = sin(camYaw) * cos(camPitch);
+    float frontX = cos(camYaw);
+    float frontZ = sin(camYaw);
 
-    float len = sqrt(frontX * frontX + frontY * frontY + frontZ * frontZ);
+    // Eliminamos el componente Y
+    float len = sqrt(frontX * frontX + frontZ * frontZ);
     frontX /= len;
-    frontY /= len;
     frontZ /= len;
 
     float rightX = -sin(camYaw);
@@ -82,12 +85,10 @@ void keyboard(unsigned char key, int x, int y) {
     switch (key) {
     case 'w':
         camX += frontX * camSpeed;
-        camY += frontY * camSpeed;
         camZ += frontZ * camSpeed;
         break;
     case 's':
         camX -= frontX * camSpeed;
-        camY -= frontY * camSpeed;
         camZ -= frontZ * camSpeed;
         break;
     case 'd':
@@ -103,6 +104,21 @@ void keyboard(unsigned char key, int x, int y) {
         break;
     }
     glutPostRedisplay();  // Actualiza la ventana
+}
+
+void mouseClick(int button, int state, int x, int y) {
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+        // Solo permite encender la linterna si es de noche (intensidad baja)
+        if (lastSunIntensity < 0.2f) {
+            linternaEncendida = !linternaEncendida;
+            if (linternaEncendida) {
+                glEnable(GL_LIGHT1);
+            }
+            else {
+                glDisable(GL_LIGHT1);
+            }
+        }
+    }
 }
 
 void passiveMouseMotion(int x, int y) {
@@ -209,58 +225,50 @@ void drawObjects()
 
 //Estado del día
 void updateDayState() {
+    float radians = angle_sun * M_PI / 180.0f;
+    float intensity = 0.5f * (sin(radians) + 1.0f);
+    lastSunIntensity = intensity; // Guardamos para saber si es de noche
 
-    float intensity = 0;
-
-    if (angle_sun >= 45 && angle_sun < 135)
-    {
-        currentState = MEDIODIA;
-        intensity = 1;
-    }
-    else if (angle_sun >= 135 && angle_sun < 225)
-    {
-        currentState = ATARDECER;
-        intensity = .6;
-    }
-    else if (angle_sun >= 225 && angle_sun < 315)
-    {
-        currentState = NOCHE;
-        intensity = 0;
-    }
-    else
-    {
-        currentState = AMANECER;
-        intensity = .4;
-    }
-
-    float r = 0.2f + 0.5f * intensity;
-    float g = 0.2f + 0.6f * intensity;
-    float b = 0.3f + 0.7f * intensity;
-
+    // Cielo
+    float r = 0.1f + 0.4f * intensity;
+    float g = 0.1f + 0.5f * intensity;
+    float b = 0.2f + 0.6f * intensity;
     glClearColor(r, g, b, 1.0f);
 
-    // Ajustar intensidad general
+    // Luz principal (sol)
     GLfloat light_diffuse[] = { intensity, intensity, intensity, 1.0f };
+    GLfloat light_ambient[] = { 0.1f * intensity, 0.1f * intensity, 0.1f * intensity, 1.0f };
     glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
+    glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
 
 
+    if (lastSunIntensity < 0.2f) {
+        if (linternaEncendida) {
+            float frontX = cos(camYaw) * cos(camPitch);
+            float frontY = sin(camPitch);
+            float frontZ = sin(camYaw) * cos(camPitch);
 
-    switch (currentState) {
-    case AMANECER:
-        printf("Estado del día: Amanecer\n");
-        break;
-    case MEDIODIA:
-        printf("Estado del día: Mediodía\n");
-        break;
-    case ATARDECER:
-        printf("Estado del día: Atardecer\n");
-        break;
-    case NOCHE:
-        printf("Estado del día: Noche\n");
-        break;
+            float pos[] = { camX, camY, camZ, 1.0f };
+            float dir[] = { frontX, frontY, frontZ };
+
+            glLightfv(GL_LIGHT1, GL_POSITION, pos);
+            glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, dir);
+
+            GLfloat white[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+            glLightfv(GL_LIGHT1, GL_DIFFUSE, white);
+            glLightfv(GL_LIGHT1, GL_SPECULAR, white);
+            glLightf(GL_LIGHT1, GL_SPOT_CUTOFF, 20.0f);
+            glLightf(GL_LIGHT1, GL_SPOT_EXPONENT, 10.0f);
+        }
+    }
+    else {
+        // Si ya no es de noche, apagamos linterna automáticamente
+        if (linternaEncendida) {
+            glDisable(GL_LIGHT1);
+            linternaEncendida = false;
+        }
     }
 }
-
 
 // Función para dibujar la escena
 void display() {
@@ -323,6 +331,7 @@ int main(int argc, char** argv) {
     glutDisplayFunc(display);
     glutTimerFunc(16, update, 0);  // Iniciar update
     glutPassiveMotionFunc(passiveMouseMotion); //Movimiento del ratón
+    glutMouseFunc(mouseClick);
 
     glutMainLoop();  // Inicia el ciclo principal de GLUT
     return 0;
