@@ -85,7 +85,7 @@ void init() {
 }
 
 bool checkCollision(float nextX, float nextZ) {
-    float halfSize = 0.1f; // "tamaño" del jugador
+    float halfSize = 0.1f;
     for (const auto& box : collisionBoxes) {
         if (nextX + halfSize > box.xMin &&
             nextX - halfSize < box.xMax &&
@@ -162,7 +162,7 @@ void keyboard(unsigned char key, int x, int y) {
 
 void mouseClick(int button, int state, int x, int y) {
     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-        // Solo permite encender la linterna si es de noche (intensidad baja)
+        // Solo permite encender la linterna si es de noche 
         if (lastSunIntensity < 0.2f) {
             linternaEncendida = !linternaEncendida;
             if (linternaEncendida) {
@@ -191,7 +191,6 @@ void passiveMouseMotion(int x, int y) {
     camYaw += dx * sensitivity;
     camPitch += dy * sensitivity;
 
-    // Limitar pitch
     if (camPitch > M_PI / 2.0f - 0.01f) camPitch = M_PI / 2.0f - 0.01f;
     if (camPitch < -M_PI / 2.0f + 0.01f) camPitch = -M_PI / 2.0f + 0.01f;
 
@@ -308,13 +307,13 @@ void updateDayState() {
     float b = 0.2f + 0.6f * intensity;
     glClearColor(r, g, b, 1.0f);
 
-    // Luz principal (sol)
+    // Sol
     GLfloat light_diffuse[] = { intensity, intensity, intensity, 1.0f };
     GLfloat light_ambient[] = { 0.1f * intensity, 0.1f * intensity, 0.1f * intensity, 1.0f };
     glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
     glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
 
-
+    //Lantern
     if (lastSunIntensity < 0.2f) {
         if (linternaEncendida) {
             float frontX = cos(camYaw) * cos(camPitch);
@@ -335,7 +334,7 @@ void updateDayState() {
         }
     }
     else {
-        // Si ya no es de noche, apagamos linterna automáticamente
+        // apagar linterna automáticamente
         if (linternaEncendida) {
             glDisable(GL_LIGHT1);
             linternaEncendida = false;
@@ -384,7 +383,7 @@ void drawMinimap() {
     glEnd();
     glPopMatrix();
 
-    // Dibujar objetos estáticos (casas, árboles, etc.)
+    // Dibujar objetos estáticos
     glColor3f(1.0f, 0.0f, 0.0f);  // Marcadores de objetos
     glPointSize(6.0f);
     glBegin(GL_POINTS);
@@ -397,7 +396,7 @@ void drawMinimap() {
     glEnd();
 
     glEnable(GL_DEPTH_TEST);
-    glEnable(GL_LIGHTING);  // Restauramos estado
+    glEnable(GL_LIGHTING);  
 }
 
 void drawText(const char* text, int x, int y) {
@@ -447,7 +446,7 @@ void display() {
 
     if (shownText)
     {
-        glDisable(GL_LIGHTING); // Para que el texto salga sin iluminación
+        glDisable(GL_LIGHTING);
         glColor3f(1.0f, 1.0f, 1.0f);
         drawText("Es una piedra normal", 400, 400);
         glEnable(GL_LIGHTING);
@@ -456,7 +455,7 @@ void display() {
 
     drawMinimap();
 
-    glFlush();  //Final
+    glFlush(); 
 }
 
 
