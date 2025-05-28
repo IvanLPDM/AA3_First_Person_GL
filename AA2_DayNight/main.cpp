@@ -270,6 +270,63 @@ void updateDayState() {
     }
 }
 
+//MiniMap----------------------
+void drawMinimap() {
+    // Cambia a un segundo viewport
+    glViewport(1000, 720, 200, 200);  
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(-5, 5, -5, 5);  
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    glDisable(GL_LIGHTING); 
+    glDisable(GL_DEPTH_TEST);
+
+    // Fondo
+    glColor3f(0.1f, 0.1f, 0.1f);
+    glBegin(GL_QUADS);
+    glVertex2f(-5, -5);
+    glVertex2f(5, -5);
+    glVertex2f(5, 5);
+    glVertex2f(-5, 5);
+    glEnd();
+
+    float px = camZ;
+    float pz = camX;
+    float angle = camYaw;
+
+    float size = 0.3f;
+    glPushMatrix();
+    glTranslatef(px, pz, 0);
+    glRotatef(-angle * 180.0 / M_PI, 0, 0, 1);  
+
+    glColor3f(0.0f, 1.0f, 1.0f); 
+    glBegin(GL_TRIANGLES);
+    glVertex2f(0.0f, size);
+    glVertex2f(-size * 0.5f, -size * 0.5f);
+    glVertex2f(size * 0.5f, -size * 0.5f);
+    glEnd();
+    glPopMatrix();
+
+    // Dibujar objetos estáticos (casas, árboles, etc.)
+    glColor3f(1.0f, 0.0f, 0.0f);  // Marcadores de objetos
+    glPointSize(6.0f);
+    glBegin(GL_POINTS);
+    glVertex2f(2, 2);
+    glVertex2f(1, 1);
+    glVertex2f(-1, -1);
+    glVertex2f(0, 0);     // árbol
+    glVertex2f(-1.5, -1.5);
+    glVertex2f(2.2, 2.4);
+    glEnd();
+
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_LIGHTING);  // Restauramos estado
+}
+
 // Función para dibujar la escena
 void display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  //Limpiar Buffer
@@ -292,6 +349,8 @@ void display() {
         0.0f, 1.0f, 0.0f);
 
     drawObjects();
+
+    drawMinimap();
 
     
 
@@ -332,6 +391,7 @@ int main(int argc, char** argv) {
     glutTimerFunc(16, update, 0);  // Iniciar update
     glutPassiveMotionFunc(passiveMouseMotion); //Movimiento del ratón
     glutMouseFunc(mouseClick);
+        
 
     glutMainLoop();  // Inicia el ciclo principal de GLUT
     return 0;
